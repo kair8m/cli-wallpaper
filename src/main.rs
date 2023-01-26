@@ -8,7 +8,7 @@ use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Layout},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table, TableState},
+    widgets::{Block, Borders, Cell, Row, Table},
     Frame, Terminal,
 };
 
@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(backend)?;
 
     // create app and run it
-    let mut app = App::new();
+    let app = App::new();
     let res = run_app(&mut terminal, app);
 
     // restore terminal
