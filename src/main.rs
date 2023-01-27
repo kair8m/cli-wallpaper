@@ -6,7 +6,7 @@ use crossterm::{
 use std::{error::Error, io};
 use tui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Layout, Rect},
+    layout::{Constraint, Layout, Rect, Direction},
     style::{Modifier, Style},
     text::Span,
     widgets::{List, ListItem},
@@ -115,6 +115,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let rects: Vec<Rect> = Layout::default()
+        .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(66), Constraint::Percentage(33)].as_ref())
         .margin(5)
         .split(f.size());
