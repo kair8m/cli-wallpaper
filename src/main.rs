@@ -6,65 +6,65 @@ use crossterm::{
 use std::{error::Error, io};
 use tui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Layout},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table},
+    layout::{Constraint, Layout, Rect},
+    style::{Modifier, Style},
+    text::Span,
+    widgets::{List, ListItem},
     Frame, Terminal,
 };
+mod image;
 
 struct App<'a> {
-    items: Vec<Vec<&'a str>>,
-    selected_row: usize,
-    selected_col: usize,
+    items: Vec<&'a str>,
+    selected_image_index: usize,
 }
 
 impl<'a> App<'a> {
     fn new() -> App<'a> {
         App {
             items: vec![
-                vec!["aurora", "beach", "tokyo"],
-                vec!["chihuahuan", "cliffs", "colony"],
-                vec!["desert", "earth", "exodus"],
-                vec!["factory", "firewatch", "forest"],
-                vec!["gradient", "home", "island"],
-                vec!["lake", "lakeside", "market"],
-                vec!["mojave", "moon", "mountains"],
-                vec!["room", "sahara", "street"],
+                "aurora",
+                "beach",
+                "tokyo",
+                "chihuahuan",
+                "cliffs",
+                "colony",
+                "desert",
+                "earth",
+                "exodus",
+                "factory",
+                "firewatch",
+                "forest",
+                "gradient",
+                "home",
+                "island",
+                "lake",
+                "lakeside",
+                "market",
+                "mojave",
+                "moon",
+                "mountains",
+                "room",
+                "sahara",
+                "street",
             ],
-            selected_row: 0,
-            selected_col: 0,
+            selected_image_index: 0,
         }
     }
-    pub fn next_row(&mut self) {
-        let mut i = self.selected_row + 1;
+    pub fn next_image(&mut self) {
+        let mut i = self.selected_image_index + 1;
         if i >= self.items.len() {
             i = 0;
         }
-        self.selected_row = i;
+        self.selected_image_index = i;
     }
 
-    pub fn prev_row(&mut self) {
-        let mut i: isize = self.selected_row as isize - 1;
+    pub fn prev_image(&mut self) {
+        let mut i: isize = self.selected_image_index as isize - 1;
         if i < 0 {
             i = self.items.first().expect("No Value").len() as isize - 1;
         }
-        self.selected_row = i as usize;
-    }
-
-    pub fn next_col(&mut self) {
-        let mut i = self.selected_col + 1;
-        if i >= self.items.first().expect("No value").len() {
-            i = 0;
-        }
-        self.selected_col = i;
-    }
-
-    pub fn prev_col(&mut self) {
-        let mut i: isize = self.selected_col as isize - 1;
-        if i < 0 {
-            i = self.items.first().expect("No Value").len() as isize - 1;
-        }
-        self.selected_col = i as usize;
+        self.selected_image_index = i as usize;
     }
 }
 
@@ -103,10 +103,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
         if let Event::Key(key) = event::read()? {
             match key.code {
                 KeyCode::Char('q') => return Ok(()),
-                KeyCode::Down | KeyCode::Char('j') => app.next_row(),
-                KeyCode::Up | KeyCode::Char('k') => app.prev_row(),
-                KeyCode::Left | KeyCode::Char('h') => app.prev_col(),
-                KeyCode::Right | KeyCode::Char('l') => app.next_col(),
+                KeyCode::Down | KeyCode::Char('j') => app.next_image(),
+                KeyCode::Up | KeyCode::Char('k') => app.prev_image(),
+                KeyCode::Left | KeyCode::Char('h') => {}
+                KeyCode::Right | KeyCode::Char('l') => {}
                 _ => {}
             }
         }
@@ -114,54 +114,35 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 }
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    let rects = Layout::default()
-        .constraints([Constraint::Percentage(100)].as_ref())
+    let rects: Vec<Rect> = Layout::default()
+        .constraints([Constraint::Percentage(66), Constraint::Percentage(33)].as_ref())
         .margin(5)
         .split(f.size());
-
-    let selected_style = Style::default().add_modifier(Modifier::REVERSED);
-    let normal_style = Style::default().bg(Color::Gray);
-    let header_cells = ["Header1", "Header2", "Header3"]
+    let mut idx: usize = 0;
+    let items: Vec<ListItem> = app
+        .items
         .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Red)));
-    let header = Row::new(header_cells)
-        .style(normal_style)
-        .height(1)
-        .bottom_margin(1);
-    let mut col_idx: usize = 0;
-    let mut row_idx: usize = 0;
-    let rows = app.items.iter().map(|item| {
-        let height = item
-            .iter()
-            .map(|content| content.chars().filter(|c| *c == '\n').count())
-            .max()
-            .unwrap_or(0)
-            + 1;
-        col_idx = 0;
-        let row = row_idx.clone();
-        let cells = item.iter().map(|c| {
-            let cell = match (col_idx, row) {
-                (x, y) if x == app.selected_col && y == app.selected_row => {
-                    Cell::from(">> ".to_owned() + *c).style(selected_style)
+        .map(|image_name| {
+            let style = match idx {
+                idx if idx == app.selected_image_index => {
+                    Style::default().add_modifier(Modifier::REVERSED)
                 }
-                _ => Cell::from(*c),
+                _ => Style::default(),
             };
-            col_idx = col_idx + 1;
-            cell
-        });
-        row_idx = row_idx + 1;
-        Row::new(cells).height(height as u16).bottom_margin(1)
-    });
-    let t = Table::new(rows)
-        .header(header)
-        .block(Block::default().borders(Borders::ALL).title("Table"))
-        .highlight_style(selected_style)
-        // .highlight_symbol(">> ")
-        .widths(&[
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
-        ]);
-    f.render_widget(t, rects[0]);
-    // f.render_stateful_widget(t, rects[0], &mut app.state);
+            let text = Span::styled(*image_name, style);
+            idx = idx + 1;
+            ListItem::new(text)
+        })
+        .collect();
+    let items = List::new(items);
+    f.render_widget(items, rects[1]);
+    let image_path = crate::image::get_image_path(app.items[app.selected_image_index]);
+
+    let image_widget = crate::image::get_image_widget(
+        image_path.as_str(),
+        rects[0].width as u32,
+        rects[0].height as u32,
+    )
+    .unwrap();
+    f.render_widget(image_widget, rects[0]);
 }
