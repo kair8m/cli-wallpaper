@@ -66,11 +66,12 @@ impl<'a> App<'a> {
     }
 
     pub fn prev_image(&mut self) {
-        let mut i: isize = self.selected_image_index as isize - 1;
-        if i < 0 {
-            i = self.items.first().expect("No Value").len() as isize - 1;
+        if self.selected_image_index == 0 {
+            self.selected_image_index = self.items.len() - 1;
         }
-        self.selected_image_index = i as usize;
+        else {
+            self.selected_image_index = self.selected_image_index - 1;
+        }
     }
 }
 
