@@ -47,6 +47,12 @@ impl<'a> App<'a> {
                 "room",
                 "sahara",
                 "street",
+                "asteroids",
+                "austronaut",
+                "city",
+                "hello-world",
+                "red-planet",
+                "steve-jobs",
             ],
             selected_image_index: 0,
         }
