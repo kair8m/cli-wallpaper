@@ -1,12 +1,13 @@
+use anyhow::Context;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{error::Error, io};
+use std::{error::Error, fs::read_dir, io, path::PathBuf};
 use tui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Layout, Rect, Direction},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::Span,
     widgets::{List, ListItem},
@@ -14,48 +15,39 @@ use tui::{
 };
 mod image;
 
-struct App<'a> {
-    items: Vec<&'a str>,
+struct App {
+    items: Vec<String>,
     selected_image_index: usize,
 }
 
-impl<'a> App<'a> {
-    fn new() -> App<'a> {
-        App {
-            items: vec![
-                "aurora",
-                "beach",
-                "tokyo",
-                "chihuahuan",
-                "cliffs",
-                "colony",
-                "desert",
-                "earth",
-                "exodus",
-                "factory",
-                "firewatch",
-                "forest",
-                "gradient",
-                "home",
-                "island",
-                "lake",
-                "lakeside",
-                "market",
-                "mojave",
-                "moon",
-                "mountains",
-                "room",
-                "sahara",
-                "street",
-                "asteroids",
-                "austronaut",
-                "city",
-                "hello-world",
-                "red-planet",
-                "steve-jobs",
-            ],
+impl App {
+    fn new() -> Result<App, Box<dyn Error>> {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("images");
+        let image_files = read_dir(path).context("couldn't find images in filesystem")?;
+        Ok(App {
+            items: image_files
+                .into_iter()
+                .filter(|file| {
+                    match file {
+                            Err(_) => false,
+                            Ok(file) => !file.path().to_str().unwrap().contains("preview")
+                        }
+                })
+                .map(|file| {
+                    file.context("Image access failed")
+                        .unwrap()
+                        .path()
+                        .with_extension("")
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_owned()
+                })
+                .collect(),
             selected_image_index: 0,
-        }
+        })
     }
     pub fn next_image(&mut self) {
         let mut i = self.selected_image_index + 1;
@@ -68,14 +60,14 @@ impl<'a> App<'a> {
     pub fn prev_image(&mut self) {
         if self.selected_image_index == 0 {
             self.selected_image_index = self.items.len() - 1;
-        }
-        else {
+        } else {
             self.selected_image_index = self.selected_image_index - 1;
         }
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let app = App::new()?;
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -83,8 +75,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // create app and run it
-    let app = App::new();
     let res = run_app(&mut terminal, app);
 
     // restore terminal
@@ -137,14 +127,14 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 }
                 _ => Style::default(),
             };
-            let text = Span::styled(*image_name, style);
+            let text = Span::styled(image_name, style);
             idx = idx + 1;
             ListItem::new(text)
         })
         .collect();
     let items = List::new(items);
     f.render_widget(items, rects[1]);
-    let image_path = crate::image::get_image_path(app.items[app.selected_image_index]);
+    let image_path = crate::image::get_image_path(app.items[app.selected_image_index].as_str());
 
     let image_widget = crate::image::get_image_widget(
         image_path.as_str(),
