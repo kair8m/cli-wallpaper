@@ -12,7 +12,7 @@ use tui::{
 pub fn get_image_widget(image_path: &str, terminal_w: u32, terminal_h: u32) -> Result<Paragraph> {
     let mut img = image::open(image_path).context("Failed to open image")?;
     img = img.resize_exact(terminal_w, terminal_h, image::imageops::Triangle);
-    let imgbuf = img.to_rgba8();
+    let imgbuf = img.unsharpen(8.0, 10).to_rgba8();
     let (width, height) = imgbuf.dimensions();
     let mut span_vec = vec![];
     for y in 0..height {
