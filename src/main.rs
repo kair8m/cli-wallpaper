@@ -1,10 +1,10 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context, Result};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{error::Error, fs::read_dir, io, path::PathBuf};
+use std::{fs::read_dir, io, path::PathBuf};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
@@ -21,18 +21,16 @@ struct App {
 }
 
 impl App {
-    fn new() -> Result<App, Box<dyn Error>> {
+    fn new() -> Result<App> {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("images");
         let image_files = read_dir(path).context("couldn't find images in filesystem")?;
         Ok(App {
             items: image_files
                 .into_iter()
-                .filter(|file| {
-                    match file {
-                            Err(_) => false,
-                            Ok(file) => !file.path().to_str().unwrap().contains("preview")
-                        }
+                .filter(|file| match file {
+                    Err(_) => false,
+                    Ok(file) => !file.path().to_str().unwrap().contains("preview"),
                 })
                 .map(|file| {
                     file.context("Image access failed")
@@ -66,7 +64,7 @@ impl App {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let app = App::new()?;
     // setup terminal
     enable_raw_mode()?;
@@ -93,10 +91,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> Result<()> {
     loop {
-        terminal.draw(|f| ui(f, &mut app))?;
+        let mut ui_failed = false;
+        terminal.draw(|f| {
+            let res = ui(f, &mut app);
+            match res {
+                Ok(_) => {}
+                Err(_) => {
+                    ui_failed = true;
+                }
+            };
+        })?;
 
+        if ui_failed {
+            return Err(anyhow!("Ui failed"));
+        }
         if let Event::Key(key) = event::read()? {
             match key.code {
                 KeyCode::Char('q') => return Ok(()),
@@ -110,7 +120,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
     }
 }
 
-fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) -> Result<()> {
     let rects: Vec<Rect> = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(66), Constraint::Percentage(33)].as_ref())
@@ -136,11 +146,13 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     f.render_widget(items, rects[1]);
     let image_path = crate::image::get_image_path(app.items[app.selected_image_index].as_str());
 
+    let binding = image_path?;
     let image_widget = crate::image::get_image_widget(
-        image_path.as_str(),
+        binding.as_str(),
         rects[0].width as u32,
         rects[0].height as u32,
     )
-    .unwrap();
+    .context("Failed to get image widget")?;
     f.render_widget(image_widget, rects[0]);
+    Ok(())
 }

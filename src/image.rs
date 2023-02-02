@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::*;
+use anyhow::{Context, Result};
 use image::Rgba;
 use tui::{
     layout::Alignment,
@@ -42,9 +42,9 @@ pub fn get_image_widget(image_path: &str, terminal_w: u32, terminal_h: u32) -> R
     Ok(res)
 }
 
-pub fn get_image_path(image_name: &str) -> String {
+pub fn get_image_path(image_name: &str) -> Result<String> {
     let mut image_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     image_dir.push("images");
     image_dir.push(image_name.to_string() + "_preview.jpg");
-    image_dir.to_str().unwrap().to_string()
+    Ok(image_dir.to_str().context("Invalid path")?.to_string())
 }
