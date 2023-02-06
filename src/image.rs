@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fs::read_dir, path::PathBuf};
 
 use anyhow::{Context, Result};
 use image::Rgba;
@@ -40,6 +40,36 @@ pub fn get_image_widget(image_path: &str, terminal_w: u32, terminal_h: u32) -> R
         )
         .alignment(Alignment::Center);
     Ok(res)
+}
+
+pub fn list_images() -> Result<Vec<String>> {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("images");
+    let image_files = read_dir(path).context("couldn't find images in filesystem")?;
+    let result = image_files
+        .into_iter()
+        .filter(|file| match file {
+            Err(_) => false,
+            Ok(dir_entry) => match dir_entry.path().to_str() {
+                Some(path) => !path.contains("preview"),
+                None => false,
+            },
+        })
+        .map(|file| -> Result<String> {
+            let res = file
+                .context("Image access failed")?
+                .path()
+                .with_extension("")
+                .file_name()
+                .context("invalid path ends with '..'")?
+                .to_str()
+                .context("invalid os string")?
+                .to_owned();
+            Ok(res)
+        })
+        .filter_map(|f| f.ok())
+        .collect();
+    Ok(result)
 }
 
 pub fn get_image_path(image_name: &str) -> Result<String> {
